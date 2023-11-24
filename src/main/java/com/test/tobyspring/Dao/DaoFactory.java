@@ -1,7 +1,10 @@
 package com.test.tobyspring.Dao;
 
+import javax.sql.DataSource;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 
 /**
  * DI 컨테이너라고 할 수 있다. UserDao 에 DConnectionMaker를 주입해주기 때문.
@@ -24,6 +27,18 @@ public class DaoFactory {
 		UserDao userDao = new UserDao();
 		userDao.setConnectionMaker(connectionMaker());
 		return userDao;
+	}
+	
+	@Bean
+	public DataSource dataSource() {
+		SimpleDriverDataSource dataSource = new SimpleDriverDataSource ();
+
+		//dataSource.setDriverClass(com.mysql.jdbc.Driver.class);
+		dataSource.setUrl("jdbc:mysql://localhost/toby?characterEncoding=UTF-8");
+		dataSource.setUsername("root");
+		dataSource.setPassword("rhantls");
+
+		return dataSource;
 	}
 	
 	@Bean

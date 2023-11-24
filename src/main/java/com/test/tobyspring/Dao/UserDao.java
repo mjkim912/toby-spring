@@ -6,6 +6,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import javax.sql.DataSource;
+
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.test.tobyspring.Domain.User;
@@ -20,28 +22,56 @@ public class UserDao {
 
 	//private SimpleConnectionMaker simpleConnectionMaker;
 	private ConnectionMaker connectionMaker;			// 읽기전용 인스턴스 변수
-	
 	public void setConnectionMaker(ConnectionMaker connectionMaker) {
 		//simpleConnectionMaker = new SimpleConnectionMaker();
 		//connectionMaker = (ConnectionMaker) new DConnectionMaker();
 		this.connectionMaker = connectionMaker;
 	}
 	
-	public void add(User user) throws ClassNotFoundException, SQLException {
-		//Connection c = getConnection();
-		//Connection c = simpleConnectionMaker.makeNewConnection();
-		Connection c = connectionMaker.makeConnection();
+	private DataSource dataSource;
+	private JdbcContext jdbcContext;
+	
+	public void setDataSource(DataSource dataSource) {	// JdbcContext 에 대한 생성, DI 작업을 동시에 수행한다.
+		this.jdbcContext = new JdbcContext();
+		this.jdbcContext.setDataSource(dataSource);		// 의존 오브젝트 주입 (DI)
+		this.dataSource = dataSource;
+	}
+	
+	
+	
+	public void jdbcContextWithStatementStrategy(StatementStrategy stmt) throws SQLException, ClassNotFoundException {
+		Connection c = null;
+		PreparedStatement ps = null;
+
+		try {
+			c = connectionMaker.makeConnection();
+
+			ps = stmt.makePreparedStatement(c);
 		
-		PreparedStatement ps = c.prepareStatement(
-				"insert into users(id, name, password) values(?, ?, ?)");
-		ps.setString(1, user.getId());
-		ps.setString(2, user.getName());
-		ps.setString(3, user.getPassword());
-		
-		ps.executeUpdate();
-		
-		ps.close();
-		c.close();
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw e;
+		} finally {
+			if (ps != null) { try { ps.close(); } catch (SQLException e) {} }
+			if (c != null) { try {c.close(); } catch (SQLException e) {} }
+		}
+	}
+	
+	public void add(final User user) throws ClassNotFoundException, SQLException {
+		// JdbcContext 클래스 분리
+		this.jdbcContext.workWithStatementStrategy(
+				new StatementStrategy() {
+					public PreparedStatement makePreparedStatement(Connection c) 
+							throws SQLException {
+						PreparedStatement ps = c.prepareStatement("insert into users(id, name, password) values(?, ?, ?)");
+						ps.setString(1, user.getId());
+						ps.setString(2, user.getName());
+						ps.setString(3, user.getPassword());
+						
+						return ps;
+					}
+				}
+		);
 	}
 	
 	public User get(String id) throws ClassNotFoundException, SQLException {
@@ -72,30 +102,58 @@ public class UserDao {
 		return user;
 	}
 	
-	public void deleteAll() throws ClassNotFoundException, SQLException {
-		Connection c = connectionMaker.makeConnection();
+	public void deleteAll() throws SQLException, ClassNotFoundException {
+		this.jdbcContext.executeSql("delete from users");
 		
-		PreparedStatement ps = c.prepareStatement("delete from users");
-		ps.executeUpdate();
-		
-		ps.close();
-		c.close();
+		/*
+		jdbcContextWithStatementStrategy(
+				new StatementStrategy() {
+					public PreparedStatement makePreparedStatement(Connection c)
+							throws SQLException {
+						return c.prepareStatement("delete from users");
+					}
+				}
+		);
+		*/
 	}
 	
 	public int getCount() throws ClassNotFoundException, SQLException {
-		Connection c = connectionMaker.makeConnection();
+		Connection c = null;
+		PreparedStatement ps = null;
+		ResultSet rs = null;
 		
-		PreparedStatement ps = c.prepareStatement("select count(*) from users");
-		
-		ResultSet rs = ps.executeQuery();
-		rs.next();
-		int count = rs.getInt(1);
-		
-		rs.close();
-		ps.close();
-		c.close();
-		
-		return count;
+		try {
+			c = connectionMaker.makeConnection();
+			ps = c.prepareStatement("select count(*) from users");
+			rs = ps.executeQuery();
+			rs.next();
+			
+			return rs.getInt(1);
+		} catch (SQLException e) {
+			throw e;
+		} finally {
+			if (rs != null) {
+				try {
+					rs.close();
+				} catch (SQLException e) {
+					
+				}
+			}
+			if (ps != null) {
+				try {
+					ps.close();
+				} catch (SQLException e) {
+					
+				}
+			}
+			if (c != null) {
+				try {
+					c.close();
+				} catch (SQLException e) {
+					
+				}
+			}
+		}
 	}
 	
 	private Connection getConnection() throws ClassNotFoundException, SQLException {
