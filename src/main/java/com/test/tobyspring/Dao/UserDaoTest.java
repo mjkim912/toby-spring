@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 
 import java.sql.SQLException;
 
+import javax.sql.DataSource;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.JUnitCore;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.support.GenericXmlApplicationContext;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -19,15 +22,19 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import com.test.tobyspring.Domain.User;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-//@ContextConfiguration(locations="/applicationContext.xml")
-@ContextConfiguration(locations="/test-applicationContext.xml")
+@ContextConfiguration(locations="/applicationContext.xml")
+//@ContextConfiguration(locations="/test-applicationContext.xml")
 public class UserDaoTest {
 	
 	@Autowired
 	private ApplicationContext context;
 	
+	// bean을 인터페이스로 가져온다.
 	@Autowired
 	UserDao dao;
+	
+	@Autowired
+	DataSource dataSource;
 	
 	//private UserDao dao;
 	private User user1;
@@ -89,6 +96,14 @@ public class UserDaoTest {
 		dao.get("unknown_id");
 	}
 	
+	@Test(expected = DataAccessException.class)
+	public void duplciateKey() {
+		dao.deleteAll();
+		
+		dao.add(user1);
+		dao.add(user1);		// 예외 발생해야 한다. (중복키 발생)
+	}
+	
 	public static void main(String[] args) {
 		// 클래스 사용 방법. 이렇게 안하고 run As - jUnit Test 해도 된다.
 		JUnitCore.main("com.test.tobyspring.Dao.UserDaoTest");
@@ -105,7 +120,7 @@ public class UserDaoTest {
 	public static void main1(String[] args) throws ClassNotFoundException, SQLException {
 		//AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(DaoFactory.class); 클래스 버전
 		ApplicationContext context = new GenericXmlApplicationContext("applicationContext.xml");			// xml 버전
-		UserDao dao = context.getBean("userDao", UserDao.class);
+		UserDaoJdbc dao = context.getBean("userDao", UserDaoJdbc.class);
 
 		//ConnectionMaker connectionMaker = (ConnectionMaker) new DConnectionMaker();
 		//UserDao dao = new UserDao(connectionMaker);
@@ -137,16 +152,16 @@ public class UserDaoTest {
 	public static void main1_1(String[] args) {
 		// 다른 오브젝트 생성
 		DaoFactory factory = new DaoFactory();
-		UserDao dao1 = factory.userDao();
-		UserDao dao2 = factory.userDao();
+		UserDaoJdbc dao1 = factory.userDao();
+		UserDaoJdbc dao2 = factory.userDao();
 		System.out.println(dao1);
 		System.out.println(dao2);
 		
 		// 같은 오브젝트 생성
 		// 매번 new 에 의해 새로운 UserDao가 만들어지지 않는다.
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(DaoFactory.class);
-		UserDao dao3 = context.getBean("userDao", UserDao.class);
-		UserDao dao4 = context.getBean("userDao", UserDao.class);
+		UserDaoJdbc dao3 = context.getBean("userDao", UserDaoJdbc.class);
+		UserDaoJdbc dao4 = context.getBean("userDao", UserDaoJdbc.class);
 		System.out.println(dao3);
 		System.out.println(dao4);
 		System.out.println(dao3 == dao4);

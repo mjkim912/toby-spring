@@ -7,11 +7,11 @@ import org.springframework.context.annotation.Configuration;
 public class CountingDaoFactory {
 
 	@Bean
-	public UserDao userDao() {
+	public UserDaoJdbc userDao() {
 		//return new UserDao(connectionMaker());
 		
-		UserDao userDao = new UserDao();
-		userDao.setConnectionMaker(connectionMaker());
+		UserDaoJdbc userDao = new UserDaoJdbc();
+		//userDao.setConnectionMaker(connectionMaker());
 		return userDao;
 	}
 	

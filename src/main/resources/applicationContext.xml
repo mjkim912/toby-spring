@@ -4,8 +4,14 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans 
 						http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-	<bean id="connectionMaker" class="com.test.tobyspring.Dao.DConnectionMaker" />
-	<bean id="userDao" class="com.test.tobyspring.Dao.UserDao">
-		<property name="connectionMaker" ref="connectionMaker" />
+	<bean id="dataSource" class="org.springframework.jdbc.datasource.SimpleDriverDataSource">
+		<property name="driverClass" value="com.mysql.cj.jdbc.Driver" />
+		<property name="url" value="jdbc:mysql://localhost/toby?characterEncoding=UTF-8" />
+		<property name="username" value="root" />
+		<property name="password" value="rhantls" />
 	</bean>
+	
+	<bean id="userDao" class="com.test.tobyspring.Dao.UserDaoJdbc">
+		<property name="dataSource" ref="dataSource" />
+	</bean> 
 </beans>
