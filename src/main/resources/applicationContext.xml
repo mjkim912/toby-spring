@@ -11,6 +11,24 @@
 		<property name="password" value="rhantls" />
 	</bean>
 	
+	<bean id="userService" class="com.test.tobyspring.Service.UserService">
+		<property name="userDao" ref="userDao" />
+		<property name="transactionManager" ref="transactionManager"></property>
+		<property name="mailSender" ref="mailSender"></property>
+	</bean> 
+	
+	<!-- 
+	<bean id="mailSender" class="org.springframework.mail.javamail.JavaMailSenderImpl">
+		<property name="host" value="mail.server.com" />
+	</bean>
+	 -->
+	
+	<bean id="mailSender" class="com.test.tobyspring.Service.DummyMailSender"/>
+	
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"></property>
+	</bean>
+	
 	<bean id="userDao" class="com.test.tobyspring.Dao.UserDaoJdbc">
 		<property name="dataSource" ref="dataSource" />
 	</bean> 

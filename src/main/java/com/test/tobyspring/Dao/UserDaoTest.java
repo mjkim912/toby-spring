@@ -19,7 +19,9 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import com.test.tobyspring.Domain.Level;
 import com.test.tobyspring.Domain.User;
+
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations="/applicationContext.xml")
@@ -48,9 +50,9 @@ public class UserDaoTest {
 		
 		//this.dao = context.getBean("userDao", UserDao.class);
 		
-		this.user1 = new User("gyumee", "박성철", "springno1");
-		this.user2 = new User("leegw700", "이길원", "springno2");
-		this.user3 = new User("bumjin", "박범진", "springno3");
+		this.user1 = new User("gyumee", "박성철", "springno1", "mail1", Level.BASIC, 1, 0);
+		this.user2 = new User("leegw700", "이길원", "springno2", "mail2",  Level.SILVER, 55, 10);
+		this.user3 = new User("bumjin", "박범진", "springno3", "mail3", Level.GOLD, 100, 40);
 	}
 
 	@Test
@@ -63,12 +65,10 @@ public class UserDaoTest {
 		assertEquals(dao.getCount(), 2);
 			
 		User userget1 = dao.get(user1.getId());
-		assertEquals(userget1.getName(), user1.getName());
-		assertEquals(userget1.getPassword(), user1.getPassword());
+		checkSameUser(userget1, user1);
 
 		User userget2 = dao.get(user2.getId());
-		assertEquals(userget2.getName(), user2.getName());
-		assertEquals(userget2.getPassword(), user2.getPassword());
+		checkSameUser(userget2, user2);
 		
 	}
 	
@@ -103,6 +103,35 @@ public class UserDaoTest {
 		dao.add(user1);
 		dao.add(user1);		// 예외 발생해야 한다. (중복키 발생)
 	}
+	
+	@Test
+	public void update() {
+		dao.deleteAll();
+		
+		dao.add(user1);			// 수정할 사용자
+		dao.add(user2);			// 수정하지 않을 사용자
+		
+		user1.setName("오민규");
+		user1.setPassword("springno6");
+		user1.setLevel(Level.GOLD);
+		user1.setRecommend(999);
+		dao.update(user1);
+		
+		User user1update = dao.get(user1.getId());
+		checkSameUser(user1, user1update);
+		User user2update = dao.get(user2.getId());
+		checkSameUser(user2, user2update);
+	}
+	
+	private void checkSameUser(User user1, User user2) {
+		assertEquals(user1.getId(), user2.getId());
+		assertEquals(user1.getName(), user2.getName());
+		assertEquals(user1.getPassword(), user2.getPassword());
+		assertEquals(user1.getLevel(), user2.getLevel());
+		assertEquals(user1.getLogin(), user2.getLogin());
+		assertEquals(user1.getRecommend(), user2.getRecommend());
+	}
+	
 	
 	public static void main(String[] args) {
 		// 클래스 사용 방법. 이렇게 안하고 run As - jUnit Test 해도 된다.
