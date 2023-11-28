@@ -11,9 +11,22 @@
 		<property name="password" value="rhantls" />
 	</bean>
 	
-	<bean id="userService" class="com.test.tobyspring.Service.UserService">
-		<property name="userDao" ref="userDao" />
+	<!-- 
+	<bean id="userService" class="com.test.tobyspring.Service.UserServiceTx">
 		<property name="transactionManager" ref="transactionManager"></property>
+		<property name="userService" ref="userServiceImpl"></property>
+	</bean> 
+	 -->
+
+	<bean id="userService" class="com.test.tobyspring.Service.TxProxyFactoryBean">
+		<property name="target" ref="userServiceImpl"></property>
+		<property name="transactionManager" ref="transactionManager"></property>
+		<property name="pattern" ref="upgradeLevels"></property>
+		<property name="serviceInterface" ref="com.test.tobyspring.Service.UserService"></property>
+	</bean> 
+	
+	<bean id="userServiceImpl" class="com.test.tobyspring.Service.UserServiceImpl">
+		<property name="userDao" ref="userDao" />
 		<property name="mailSender" ref="mailSender"></property>
 	</bean> 
 	

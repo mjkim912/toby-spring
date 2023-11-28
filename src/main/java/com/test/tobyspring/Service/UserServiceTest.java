@@ -1,7 +1,7 @@
 package com.test.tobyspring.Service;
 
-import static com.test.tobyspring.Service.UserService.MIN_LOGCOUNT_FOR_SILVER;
-import static com.test.tobyspring.Service.UserService.MIN_RECOMMEND_FOR_GOLD;
+import static com.test.tobyspring.Service.UserServiceImpl.MIN_LOGCOUNT_FOR_SILVER;
+import static com.test.tobyspring.Service.UserServiceImpl.MIN_RECOMMEND_FOR_GOLD;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
@@ -15,7 +15,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.mail.MailSender;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -28,24 +30,19 @@ import com.test.tobyspring.Domain.User;;
 @ContextConfiguration(locations="/applicationContext.xml")
 public class UserServiceTest {
 
-	@Autowired
-	UserService userService;
-	@Autowired
-	UserDao userDao;
-	//@Autowired
-	//DataSource dataSource;
-	@Autowired
-	PlatformTransactionManager transationManager;
-	
-	@Autowired
-	MailSender mailSender;
+	@Autowired UserServiceImpl userServiceImpl;
+	@Autowired UserDao userDao;
+	//@Autowired DataSource dataSource;
+	@Autowired PlatformTransactionManager transationManager;
+	@Autowired MailSender mailSender;
+	@Autowired ApplicationContext context;		// 팩토리 빈을 가져오려면 필요하다.
 	
 	List<User> users;
 	
 	// userService 빈의 주입을 확인하는 테스트
 	@Test
 	public void bean() {
-		assertNotNull(this.userService);
+		assertNotNull(this.userServiceImpl);
 	}
 	
 	@Before
@@ -66,7 +63,7 @@ public class UserServiceTest {
 		
 		for (User user : users) userDao.add(user);
 		
-		userService.upgradeLevels();
+		userServiceImpl.upgradeLevels();
 		
 		CheckLevelUpgraded(users.get(0), false);
 		CheckLevelUpgraded(users.get(1), true);
@@ -87,8 +84,8 @@ public class UserServiceTest {
 		User userWithoutLevel = users.get(0);	// 레벨이 비어 있는 사용자. 등록중에 BASIC 레벨도 설정돼야 한다.
 		userWithoutLevel.setLevel(null);
 		
-		userService.add(userWithLevel);
-		userService.add(userWithoutLevel);
+		userServiceImpl.add(userWithLevel);
+		userServiceImpl.add(userWithoutLevel);
 		
 		User userWithLevelRead = userDao.get(userWithLevel.getId());
 		User userWithoutLevelRead = userDao.get(userWithoutLevel.getId());
@@ -103,10 +100,10 @@ public class UserServiceTest {
 	 * 그 전에 업그레이드했던 사용자도 다시 원래 상태로 돌아갔는지를 확인하는 작업이다.
 	 */
 	@Test
-	public void upgradeAllOrNothing() {
-		UserService testUserService = new TestUserService(users.get(3).getId());
+	public void upgradeAllOrNothing_before() {
+		UserServiceImpl testUserService = new TestUserService(users.get(3).getId());
 		testUserService.setUserDao(this.userDao);		// userDao를 수동 DI 해준다.
-		testUserService.setTransactionManager(this.transationManager);	// 트랜잭션 동기화에 필요한 transactionManager를 DI 해준다.
+		//testUserService.setTransactionManager(this.transationManager);	// 트랜잭션 동기화에 필요한 transactionManager를 DI 해준다.
 		testUserService.setMailSender(mailSender);
 		
 		userDao.deleteAll();
@@ -115,6 +112,33 @@ public class UserServiceTest {
 		
 		try {
 			testUserService.upgradeLevels();
+			fail("TestUserServiceException expected");
+		} catch (TestUserServiceException e) {
+			
+		}
+		
+		CheckLevelUpgraded(users.get(1), false);
+	}
+	
+	// 다이내믹 프록시를 이용한 트랜잭션 테스트
+	@Test
+	@DirtiesContext
+	public void upgradeAllOrNothing() throws Exception {
+		UserServiceImpl testUserService = new TestUserService(users.get(3).getId());
+		testUserService.setUserDao(this.userDao);		// userDao를 수동 DI 해준다.
+		//testUserService.setTransactionManager(this.transationManager);	// 트랜잭션 동기화에 필요한 transactionManager를 DI 해준다.
+		testUserService.setMailSender(mailSender);
+		
+		// 팩토리 빈 자체를 가져와야 하므로 빈 이름에 &를 반드시 넣어야 한다.
+		TxProxyFactoryBean txProxyFactoryBean = context.getBean("&userService", TxProxyFactoryBean.class);	// 테스트용 타깃 주입
+		txProxyFactoryBean.setTarget(testUserService);
+		UserService txUserService = (UserService) txProxyFactoryBean.getObject();
+		
+		userDao.deleteAll();
+		for (User user : users) userDao.add(user);
+		
+		try {
+			txUserService.upgradeLevels();
 			fail("TestUserServiceException expected");
 		} catch (TestUserServiceException e) {
 			
@@ -141,7 +165,7 @@ public class UserServiceTest {
 	 * 테스트에서만 사용할 클래스라서 스태틱 클래스로 만드는 것이 간편하다. 
 	 * UserService에 필요한 기능이 있으므로 상속받는다.
 	 */
-	static class TestUserService extends UserService {
+	static class TestUserService extends UserServiceImpl {
 		private String id;
 		
 		// 예외를 발생시킬 id를 지정할 수 있게 만든다.
