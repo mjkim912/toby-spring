@@ -5,6 +5,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -13,6 +16,7 @@ import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Scope;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.context.support.GenericXmlApplicationContext;
@@ -135,6 +139,55 @@ public class ApplicationContextTest {
 		assertNotNull(config);
 		
 		assertNotEquals(config.annotatedHello(), sameInstance(hello));
+	}
+	
+	// 싱글톤 빈 테스트 
+	@Test
+	public void singletonScope() {
+		ApplicationContext ac = new AnnotationConfigApplicationContext(SingletonBean.class, SingletonClientBean.class);
+		Set<SingletonBean> beans = new HashSet<SingletonBean>();	// 중복허용하지 않음.
+		
+		// DL 에서 싱글톤 확인 
+		beans.add(ac.getBean(SingletonBean.class));
+		beans.add(ac.getBean(SingletonBean.class));
+		assertEquals(beans.size(), 1);
+		
+		// DI 에서 싱글톤 확인
+		beans.add(ac.getBean(SingletonClientBean.class).bean1);
+		beans.add(ac.getBean(SingletonClientBean.class).bean2);
+		assertEquals(beans.size(), 1);
+	}
+	
+	static class SingletonBean {}	// 싱글톤 스코프 빈. 스코프 빈 메타정보의 디폴트 값은 "싱글톤" 이기 때문에 별도의 스코프 설정은 필요 없다.
+	static class SingletonClientBean {
+		@Autowired SingletonBean bean1;		// 한 번 이상 DI 가 일어날 수 있도록 두 개의 DI 용 프로퍼티를 선언해뒀다.
+		@Autowired SingletonBean bean2;
+	}
+	
+	// 프로토타입 빈 테스트
+	@Test
+	public void prototypeScope() {
+		ApplicationContext ac = new AnnotationConfigApplicationContext(PrototypeBean.class, PrototypeClientBean.class);
+		Set<PrototypeBean> bean = new HashSet<PrototypeBean>();
+		
+		// DL 방식으로 컨테이너에 빈을 요청ㅇ할 때마다 새로운 빈 오브젝트가 만들어진다.
+		bean.add(ac.getBean(PrototypeBean.class));
+		assertEquals(bean.size(), 1);
+		bean.add(ac.getBean(PrototypeBean.class));
+		assertEquals(bean.size(), 2);
+		
+		// DI 방식으로 주입받는 프로퍼티마다 다른 오브젝트가 만들어진다.
+		bean.add(ac.getBean(PrototypeClientBean.class).bean1);
+		assertEquals(bean.size(), 3);
+		bean.add(ac.getBean(PrototypeClientBean.class).bean2);
+		assertEquals(bean.size(), 4);
+	}
+	
+	@Scope("prototype")	// 프로토타입 빈 설정
+	static class PrototypeBean {}
+	static class PrototypeClientBean {
+		@Autowired PrototypeBean bean1;
+		@Autowired PrototypeBean bean2;
 	}
 	
 	@Test
